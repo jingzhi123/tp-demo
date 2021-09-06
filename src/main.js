@@ -7,6 +7,19 @@ window.unique = (arr) => {
     return Array.from(new Set(arr)); // 利用Array.from将Set结构转换成数组
 }
 
+window.uniqueArray = (arr, key) => {
+    var newarr = []; //存去重后的新数组
+    var newarrname = []; //获取name值
+    arr.forEach(res => {
+        if (!newarrname.includes(res[key])) {
+            newarrname.push(res[key]);
+            newarr.push(res)
+        }
+    })
+
+    return newarr;
+}
+
 Vue.config.productionTip = false
 
 Vue.use(ElementUI);

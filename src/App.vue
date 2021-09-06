@@ -5,7 +5,7 @@
         <el-col>
           <el-input
             @keyup.enter.native="search"
-            v-model="name"
+            v-model="curId"
             style="width: 462px; height: 50px"
           >
             <template #suffix>
@@ -17,55 +17,14 @@
         </el-col>
       </el-row>
     </div>
-    <div class="content">
-      <div
-        class="relation-block"
-        @click="triggerSelect(relation)"
-        :key="i"
-        v-for="(relation, i) in curRelations"
-        :style="positionStyle(relation)"
-        :id="relation.id"
-        :data-id="relation.id"
-        :data-to="relation.to"
-        :data-label="relation.label"
-        :data-from="relation.from"
-      >
-        <div
-          v-if="relation.selected"
-          :id="'orange-' + relation.id"
-          class="circle orange-circle outter flex-center animated-rotate"
-          style="background-image: url(/imgs/orange-circle.png)"
-        ></div>
-        <div
-          :id="relation.id + '-inner'"
-          @contextmenu="showContextmenu($event, relation)"
-          :class="
-            curRelation.id == relation.id
-              ? 'centerEle'
-              : relation.selected
-              ? ' selected'
-              : ''
-          "
-          class="circle"
-          :style="circleStyle(relation)"
-        ></div>
-        <div class="relation-name">{{ relation.name }}</div>
-        <div class="menu" v-if="relation.showMenu">
-          <ul>
-            <li @click.stop="show(relation)">菜单1</li>
-            <li>2</li>
-            <li>3</li>
-          </ul>
-        </div>
-      </div>
-      <!-- <div class="svg-container">
-    <svg class="line" id="svg-object">
-        <line x1="0" y1="0" x2="10px" y2="200" />
-        <path d="M102,250 Q242,114 394,244" />
-    </svg>
-</div> -->
+    <div class="content" id="container"></div>
+    <div class="menu" id="contextMenu">
+      <ul>
+        <li @click.stop="show(rightChoosed)">菜单1</li>
+        <li>2</li>
+        <li>3</li>
+      </ul>
     </div>
-    <!-- <div id="container"></div> -->
   </div>
 </template>
 <style>
@@ -115,142 +74,105 @@ body {
 </style>
 <script>
 import vis from "vis";
-import Vue from 'vue'
+import Vue from "vue";
 export default {
   name: "app",
   data() {
     return {
-      name: "",
-      curName:'',
+      curId: "",
+      chosenId:"",
+      rightChoosed: null,
       default: {
         id: "default",
-        name: "",
-        imgUrl: "imgs/default-icon.png",
+        image: "imgs/default-icon.png",
       },
-      relations: [
+      nodeData: [
         {
           id: "李四",
-          name: "李四",
-          to: "张三",
-          label: "朋友",
-          imgUrl: "/imgs/default-icon.png",
-          showMenu: false,
-          selected: false,
-          position: { left: 200, top: 300 },
+          label:'李四',
+          image: "/imgs/default-icon.png",
+        },
+        {
+          id: "赵六",
+          label:'赵六',
+          image: "/imgs/default-icon.png",
         },
         {
           id: "张三",
-          name: "张三",
-          to: "李四",
-          label: "朋友",
-          imgUrl: "/imgs/people/zhangsan.jpg",
-          selected: false,
-          showMenu: false,
-          position: { left: 500, top: 500 },
+          label:'张三',
+          image: "/imgs/people/zhangsan.jpg",
         },
         {
           id: "王五",
-          name: "王五",
-          to: "李四",
-          label: "朋友啊",
-          imgUrl: "/imgs/people/wangwu.png",
-          selected: false,
-          showMenu: false,
-          position: { left: 1000, top: 100 },
+          label:'王五',
+          image: "/imgs/people/wangwu.png",
         },
       ],
+      edgeData:[
+        {from:'李四',to:'张三',label:'朋友'},
+        {from:'李四',to:'赵六',label:'朋友'},
+        {from:'李四',to:'王五',label:'朋友啊'},
+        {from:'张三',to:'李四',label:'好朋友'},
+      ],
       curRelation: {},
-      curRelations: [],
+      curEdges:[],
+      curNodes: [],
+      network: null,
     };
   },
   mounted() {
-    // this.initVis(this.relations)
     // this.drawLine()
   },
-  watch:{
-    'curRelations'(nv,ov){
-      // console.log(nv,ov);
-      if(nv.length<ov.length){
-        let rv = ov.filter(items => nv.indexOf(items) == -1);
-        if(rv.length){
-          this.removeLine(rv[0].id)
-        }
-      }
-    }
-  },
-  computed: {
-    circleStyle(relation) {
-      // let relation = vm.curRelation;
-      return function (relation) {
-        let circleStyle = {
-          backgroundImage: `url(${relation.imgUrl})`,
-        };
-
-        return circleStyle;
-      };
-    },
-    positionStyle(relation) {
-      return function (relation) {
-        let style = {};
-        if (relation.position && this.curRelation.id != relation.id) {
-          style = {
-            left: relation.position.left + "px",
-            top: relation.position.top + "px",
-          };
-        }
-        return style;
-      };
-    },
-    stringify(obj) {
-      return function (obj) {
-        return JSON.stringify(obj);
-      };
-    },
-  },
+  watch: {},
   methods: {
-    removeLine(id){
-      let line = $(`#${id}-line`);
-      // let lineTo = $(`#${to}-line`);
-      let lineLabel = $(`#${id}-line-label`);
-      // let arrowTo = $(`#${to}-line-label`);
-      line.remove();
-      // lineTo.remove();
-      lineLabel.remove();
+    formatNodeByData(d) {
+      d.shape = "circularImage";
+      return d;
     },
-    drawLine(relation) {
-      let startObj = $(`#${relation.id}`);
-      // let endObj = $(`#${relation.to}`);
+    formatEdgeByData(d) {
+      return {
+        from: d.from,
 
-      // $(`.line`).remove();
-      this.updateElement(startObj);
-      // let div = this.getLineDiv(startObj, endObj);
-      // $(".content").append(div);
-
-      // let line = $(`#${relation.id}-line`);
-      // let lineLabel = $(`#${relation.id}-line-label`)
-      // let lineArrow = lineLabel.find('.arrow')
-      // let lineLabelLeft = line.width()/2 - (lineLabel.width()+20)/2 + "px";
-      // lineLabel.css("left",lineLabelLeft)
-      // lineArrow.css("left",-(lineLabel.width()+20)/5)
+        to: d.to,
+        label: d.label,
+        arrows: "to",
+        length: 300,
+        arrows: {
+            middle: {
+              enabled: true,
+              imageHeight: 32,
+              imageWidth: 32,
+              scaleFactor: 1,
+              src: "https://visjs.org/images/visjs_logo.png",
+              type: "image",
+            },
+          },
+          smooth: {
+            enabled: true,
+            type: "dynamic",
+            roundness: 0.5,
+          },
+          endPointOffset: {
+            from: 10,
+            to: 10,
+          },
+      };
     },
     // vis关系图初始化
-    initVis(body) {
-      var nodes = new vis.DataSet([
-        { id: 1, label: "Node 1" },
-        { id: 2, label: "Node 2" },
-        { id: 3, label: "Node 3" },
-        { id: 4, label: "Node 4" },
-        { id: 5, label: "Node 5" },
-      ]);
+    initVis() {
+      let vm = this;
+      let curNodes = this.curNodes.map((d) => {
+        return this.formatNodeByData(d);
+      });
+      console.log(this.curNodes);
+      var nodes = new vis.DataSet(curNodes);
 
+      let curEdges = this.curEdges.map((d) => this.formatEdgeByData(d));
+
+      curEdges = curEdges.filter(d=>!!d.to&&!!d.from);
+      console.log(curEdges);
       // create an array with edges
-      var edges = new vis.DataSet([
-        { from: 1, to: 3 },
-        { from: 1, to: 2 },
-        { from: 2, to: 4 },
-        { from: 2, to: 5 },
-        { from: 3, to: 3 },
-      ]);
+      var edges = new vis.DataSet(curEdges);
 
       // create a network
       var container = document.getElementById("container");
@@ -258,194 +180,155 @@ export default {
         nodes: nodes,
         edges: edges,
       };
-      var options = {};
-      var network = new vis.Network(container, data, options);
-    },
-    select(relation) {
-      this.curRelations.forEach((r) => {
-        if (r.id != relation.id) {
-          r.selected = false;
+      var options = {
+        locale: "cn",
+        physics: {
+          stabilization: false,
+          barnesHut: {
+            gravitationalConstant: -3000, //(默认值 : -2000)引力：值越大节点越集中，反之值越小节点越离散
+            springConstant: 0.02, //(default: 0.04)弹簧：值越大弹性越强
+            springLength: 50, //(default: 95)弹簧长度
+          },
+          // minVelocity: 5 //(default: 1)一旦达到所有节点的最小速度，我们假设网络已经稳定，布局停止。
+        },
+        interaction: {
+          navigationButtons: true,
+          keyboard: true,
+        },
+        nodes: {
+          borderWidth: 2,
+          brokenImage: "/imgs/default-icon.png",
+          size: 30,
+          color: {
+            border: "#fff",
+            background: "#666666",
+          },
+          font: {
+            color: "#eeeeee",
+          },
+          shadow: true,
+        },
+        layout: {
+          randomSeed: 2,
+        },
+        groups: {
+          root: { color: { border: "#666666" }, borderWidth: 12 },
+        },
+      };
+      if (this.network) {
+        console.log(this.network);
+      } else {
+      }
+      this.network = new vis.Network(container, data, options);
+
+      this.network.on("select", (data) => {
+        console.log(data);
+        if (data.nodes.length) {
+          let relation = vm.getNodeDataById(data.nodes[0]);
+          vm.triggerSelect(relation);
         }
       });
-      relation.selected = true;
+
+      // 单击鼠标右键触发
+      this.network.on("oncontext", function (params) {
+        console.log(params);
+        let nodeId = this.getNodeAt(params.pointer.DOM);
+        vm.showContextmenu(params, nodeId);
+      });
+    },
+    getNodeDataById(id) {
+      return this.nodeData.find((r) => r.id == id);
+    },
+    select(relation) {
+      let vm = this;
+      this.curNodes.forEach((r) => {
+        if (r.id != relation.id) {
+          r.group = "0";
+        }
+        r.chosen = {
+          node: function (values, id, selected, hovering) {
+            if (selected) {
+              values.borderColor = "orange";
+              values.borderWidth = 5;
+            }
+          },
+        };
+      });
+      relation.group = "root";
       // $(`#${relation.id}-inner`).addClass("selected");
     },
     show(relation) {
       console.log(relation);
-      relation.showMenu = false;
-    },
-    updateElements(event, ui) {
-      if ($(".relation-block").length > 0) {
-        $(".relation-block").each((i, o) => {
-          this.updateElement($(o));
-        });
-      }
-    },
-    updateElement(obj) {
-      if (!obj) return;
-      let id = obj.attr("id");
-      let to = obj.attr("data-to");
-      this.removeLine(id)
-      let startObj = $(`#${id}`);
-      let endObj = $(`#${to}`);
-
-      let div = this.getLineDiv(startObj, endObj);
-      $(".content").append(div);
-
-      let line = $(`#${id}-line`);
-      let lineLabel = $(`#${id}-line-label`);
-      let lineArrow = lineLabel.find(".arrow");
-      let lineLabelLeft =
-        line.width() / 2 - (lineLabel.width() + 20) / 2 + "px";
-      lineLabel.css("left", lineLabelLeft);
-      lineArrow.css("left", -(lineLabel.width() + 20) / 4);
-    },
-    getLineDiv(startObj, endObj) {
-      let id = $(startObj).attr("id");
-      let toId = $(endObj).attr("id");
-      let label = $(startObj).attr("data-label");
-      if(!toId){return ``}
-
-      const startY = startObj.offset().top + startObj.height() / 2;
-      const startX = startObj.offset().left + startObj.width() / 2;
-
-      // 终点元素中心坐标
-      const endY = endObj.offset().top + endObj.height() / 2;
-      const endX = endObj.offset().left + endObj.width() / 2;
-
-      // 用勾股定律计算出斜边长度及其夹角（即连线的旋转角度）
-      const lx = endX - startX;
-      const ly = endY - startY;
-      // 计算连线长度
-      const length = Math.sqrt(lx * lx + ly * ly) - startObj.width();
-      if(length<0){debugger}
-      // 弧度值转换为角度值
-      const c = (360 * Math.atan2(ly, lx)) / (2 * Math.PI);
-
-      // 连线中心坐标
-      const midX = (endX + startX) / 2;
-      const midY = (endY + startY) / 2;
-      const deg = c <= -90 ? 360 + c : c; // 负角转换为正角
-      const left = midX - length / 2;
-      let div = `
-      
-      <div
-          id="${id}-line"
-          data-to="${toId}"
-          class="line"
-          style="
-            position:absolute;
-            top: ${midY}px;
-            left: ${left}px;
-            width: ${length}px;
-            transform: rotate(${deg}deg);
-            border: 1px solid white;">
-          <div 
-            style="transform: rotate(-180deg);"
-            id="${id}-line-label"
-            class="line-label">
-            <span>${label}</span>
-            <div class="arrow">
-            <i class="el-icon-caret-left"></i>
-          </div>
-      </div>
-        
-        `;
-
-      return div;
+      this.hideContextMenu();
     },
     async search() {
-      $(".line,.line-label").remove();
-      this.default.name = this.name;
-      this.curRelations.forEach((r) => {
-        r.selected = false;
-        r.showMenu = false;
-      });
-
-      let curRelation = this.relations.find((r) => {
-        if (r.name == this.name) {
+      this.default.id = this.curId;
+      let curRelation = this.nodeData.find((r) => {
+        if (r.id == this.curId) {
           return r;
         }
       });
       if (curRelation) {
-        this.triggerSelect(curRelation,true)
+        this.triggerSelect(curRelation, true);
       } else {
         this.curRelations = [this.default];
         this.curRelation = this.default;
+        this.triggerSelect(this.curRelation, true);
       }
-      this.process($(`#${this.curRelation.id}`));
-      console.log(this.name);
+      // this.process($(`#${this.curRelation.id}`));
+      // console.log(this.name);
       // this.process()
     },
-    async triggerSelect(curRelation,toCenter){
-      this.curName = curRelation.name;
-      if(curRelation.id=='default'){
-        this.curRelations = [this.default]
-        return;
+    async triggerSelect(curRelation, toCenter) {
+      if (curRelation.id != "default") {
+        
+          this.getCurRelations(curRelation);
+        
       }
-      if(this.curName==this.name){
-        this.curRelations = this.getCurRelations();
 
-      } else {
-        this.curRelations = this.curRelations.concat(this.getCurRelations());
-        this.curRelations = unique(this.curRelations)
-
-      }
-      if(toCenter){
-        this.curRelation = curRelation;
-        await this.$nextTick();
-        this.toCenterPos($(`#${curRelation.id}`));
-      }
       this.select(curRelation);
-
-      if (this.curRelations.length > 0 && this.curRelation.id!='default') {
-        await Vue.nextTick();
-        this.updateElements()
-        $(".relation-block").draggable({
-          cursor: "move",
-          //start: justLog,
-          drag:this.updateElements,
-          // stop: this.updateElements,
-          //stop: justLog
-        });
-      }
+      this.initVis();
     },
-    getCurRelations(){
+    getCurRelations(curRelation) {
+      this.chosenId = curRelation.id;
       let vm = this;
-      let c1 = this.relations.filter(r=>{
-        return (r.name==vm.curName||r.to==vm.curName);
-      });
-      let c2 = [];
-      if(c1.length == 1){
-        let c1r = c1[0];
-        this.relations.forEach(r=>{
-          if(c1r.to==r.name){
-            c2.push(r)
-          }
-        })
+      this.curEdges = this.edgeData.filter(d=>d.from==vm.chosenId||d.to==vm.chosenId)
 
-      }
-      let curRelations = c1.concat(c2);
-      curRelations = unique(curRelations)
-      return curRelations;
+      let nodeIds = []
+      this.curEdges.forEach(d=>{
+        if(d.from==vm.chosenId){
+          nodeIds.push(d.from)
+          nodeIds.push(d.to)
+        }
+        if(d.to==vm.chosenId){
+          nodeIds.push(d.from)
+          nodeIds.push(d.to);
+        }
+      })
+      nodeIds = unique(nodeIds)
+
+      this.curNodes = this.nodeData.filter(d=>{
+        return nodeIds.includes(d.id)
+      })
+      // return curRelations;
     },
-    process(ele) {
-      $(ele).draggable({ cursor: "crosshair" });
-      // this.curRelations.forEach((relation) => {
-      //   this.drawLine(relation);
-      // });
-    },
+
     hideContextMenu() {
-      for (let index = 0; index < this.curRelations.length; index++) {
-        const relation = this.curRelations[index];
-        relation.showMenu = false;
-      }
+      $(".menu").hide();
     },
-    showContextmenu(e, relation) {
-      e.preventDefault();
+    showContextmenu(params, nodeId) {
+      if (nodeId) {
+        params.event.preventDefault();
+        $("#contextMenu").finish().toggle(100);
+        $("#contextMenu").css({
+          top: params.pointer.DOM.y + "px",
+          left: params.pointer.DOM.x + "px",
+        });
 
-      relation.showMenu = true;
-      console.log("show");
+        this.rightChoosed = this.getNodeDataById(nodeId);
+      } else {
+        this.rightChoosed = null;
+      }
     },
     toCenterPos(o) {
       o.css("position", "absolute");
@@ -485,6 +368,7 @@ export default {
   left: 50px;
   top: 50px;
   opacity: 0.9;
+  display: none;
 }
 .menu ul {
   list-style: none;
