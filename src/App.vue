@@ -4,12 +4,12 @@
       <el-row type="flex" align="center">
         <el-col>
           <el-input
-            @keyup.enter.native="search"
+            @keyup.enter.native="searchWithData"
             v-model="curId"
             style="width: 462px; height: 50px"
           >
             <template #suffix>
-              <a @click="search" class="search-btn">
+              <a @click="searchWithData" class="search-btn">
                 <i class="el-icon-search"></i>
               </a>
             </template>
@@ -84,6 +84,7 @@ export default {
       rightChoosed: null,
       default: {
         id: "default",
+        label:"default",
         image: "imgs/default-icon.png",
       },
       nodeData: [
@@ -224,8 +225,13 @@ export default {
       this.network.on("select", (data) => {
         console.log(data);
         if (data.nodes.length) {
-          let relation = vm.getNodeDataById(data.nodes[0]);
-          vm.triggerSelect(relation);
+          // let relation = vm.getNodeDataById(data.nodes[0]);
+          vm.chosenId = data.nodes[0];
+          console.log(vm.chosenId);
+          vm.$nextTick(()=>{
+            vm.triggerSelectWithData()
+          })
+          // vm.triggerSelect(relation);
         }
       });
 
@@ -275,9 +281,10 @@ export default {
         this.curRelation = this.default;
         this.triggerSelect(this.curRelation, true);
       }
-      // this.process($(`#${this.curRelation.id}`));
-      // console.log(this.name);
-      // this.process()
+    },
+    async searchWithData(){
+      this.chosenId = this.curId;
+      this.triggerSelectWithData()
     },
     async triggerSelect(curRelation, toCenter) {
       if (curRelation.id != "default") {
@@ -312,6 +319,56 @@ export default {
       })
       // return curRelations;
     },
+    async triggerSelectWithData(){
+      await this.getCurRelationsWithData()
+      this.select(this.curRelation);
+      this.initVis();
+    },
+    async getCurRelationsWithData(){
+      let {curEdges,curNodes,curRelation} = await this.getData();
+      if (curRelation) {
+        this.curRelation = curRelation;
+        this.chosenId = curRelation.id;
+        this.curNodes = curNodes;
+        this.curEdges = curEdges;
+        
+      } else {
+        this.default.id = this.curId;
+        this.default.label = this.curId;
+        this.curRelation = this.default;
+        this.chosenId = this.curRelation.id;
+        this.curNodes = [this.default];
+        this.curEdges = [];
+      }
+    },
+
+    getData(){
+      let vm = this;
+      let curEdges = this.edgeData.filter(d=>d.from==vm.chosenId||d.to==vm.chosenId)
+      
+      let curRelation = this.nodeData.find(d=>d.id==vm.chosenId)
+
+      let nodeIds = []
+      curEdges.forEach(d=>{
+        if(d.from==vm.chosenId){
+          nodeIds.push(d.from)
+          nodeIds.push(d.to)
+        }
+        if(d.to==vm.chosenId){
+          nodeIds.push(d.from)
+          nodeIds.push(d.to);
+        }
+      })
+      nodeIds = unique(nodeIds)
+
+      let curNodes = this.nodeData.filter(d=>{
+        return nodeIds.includes(d.id)
+      })
+      
+
+      return {curEdges,curNodes,curRelation}
+    },
+
 
     hideContextMenu() {
       $(".menu").hide();
